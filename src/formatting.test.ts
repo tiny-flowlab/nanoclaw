@@ -40,9 +40,13 @@ describe('escapeXml', () => {
     expect(escapeXml('"hello"')).toBe('&quot;hello&quot;');
   });
 
+  it('escapes single quotes', () => {
+    expect(escapeXml("it's")).toBe('it&apos;s');
+  });
+
   it('handles multiple special characters together', () => {
-    expect(escapeXml('a & b < c > d "e"')).toBe(
-      'a &amp; b &lt; c &gt; d &quot;e&quot;',
+    expect(escapeXml('a & b < c > d "e" \'f\'')).toBe(
+      "a &amp; b &lt; c &gt; d &quot;e&quot; &apos;f&apos;",
     );
   });
 

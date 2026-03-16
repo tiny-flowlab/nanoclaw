@@ -145,7 +145,9 @@ function getRealPath(p: string): string | null {
 }
 
 /**
- * Check if a path matches any blocked pattern
+ * Check if a path matches any blocked pattern.
+ * Matches on exact path component boundaries only to prevent false positives
+ * (e.g., ".aws" must not match ".aws_backup" directory names).
  */
 function matchesBlockedPattern(
   realPath: string,
@@ -154,16 +156,11 @@ function matchesBlockedPattern(
   const pathParts = realPath.split(path.sep);
 
   for (const pattern of blockedPatterns) {
-    // Check if any path component matches the pattern
+    // Only match when a path component is exactly the pattern
     for (const part of pathParts) {
-      if (part === pattern || part.includes(pattern)) {
+      if (part === pattern) {
         return pattern;
       }
-    }
-
-    // Also check if the full path contains the pattern
-    if (realPath.includes(pattern)) {
-      return pattern;
     }
   }
 
