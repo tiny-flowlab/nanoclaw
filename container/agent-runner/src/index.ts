@@ -118,6 +118,26 @@ function saveHistory(sessionId: string, messages: CoreMessage[]): void {
   fs.writeFileSync(file, JSON.stringify(trimmed, null, 2));
 }
 
+/** Remove session files older than 7 days to prevent unbounded accumulation. */
+function cleanupOldSessions(currentSessionId: string): void {
+  try {
+    const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const files = fs.readdirSync(SESSIONS_DIR);
+    for (const file of files) {
+      if (!file.endsWith('.json') || file === `${currentSessionId}.json`) continue;
+      const filePath = path.join(SESSIONS_DIR, file);
+      try {
+        const stat = fs.statSync(filePath);
+        if (now - stat.mtimeMs > MAX_AGE_MS) {
+          fs.unlinkSync(filePath);
+          log(`Cleaned up old session: ${file}`);
+        }
+      } catch { /* ignore per-file errors */ }
+    }
+  } catch { /* directory might not exist */ }
+}
+
 /** Build system prompt from global CLAUDE.md + group CLAUDE.md. */
 function buildSystemPrompt(isMain: boolean, assistantName?: string): string {
   const parts: string[] = [];
@@ -188,9 +208,19 @@ async function runAgentLoop(
         fullText += chunk;
       }
 
-      // Add assistant response to history
-      history = [...history, { role: 'assistant', content: fullText } as CoreMessage];
+      // Warn if the model hit the step limit without producing visible text
+      const finishReason = await result.finishReason;
+      if (!fullText && finishReason !== 'stop') {
+        log(`Warning: streamText finished with reason "${finishReason}" and no text output`);
+      }
+
+      // Use result.response.messages to capture the full assistant turn,
+      // including any intermediate tool calls and tool results from maxSteps.
+      // This preserves correct multi-turn context across follow-up messages.
+      const { messages: responseMessages } = await result.response;
+      history = [...history, ...responseMessages];
       saveHistory(sessionId, history);
+      cleanupOldSessions(sessionId);
 
       writeOutput({
         status: 'success',

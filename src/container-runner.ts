@@ -242,10 +242,16 @@ function buildContainerArgs(
   // For OpenAI / Gemini: inject API keys as placeholders — real keys are injected
   // by the credential proxy for Claude; for other providers pass through directly.
   if (LLM_PROVIDER === 'openai') {
-    args.push('-e', `OPENAI_API_KEY=${process.env.OPENAI_API_KEY || 'placeholder'}`);
+    args.push(
+      '-e',
+      `OPENAI_API_KEY=${process.env.OPENAI_API_KEY || 'placeholder'}`,
+    );
   }
   if (LLM_PROVIDER === 'gemini') {
-    args.push('-e', `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || 'placeholder'}`);
+    args.push(
+      '-e',
+      `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || 'placeholder'}`,
+    );
   }
 
   // Mirror the host's auth method with a placeholder value.

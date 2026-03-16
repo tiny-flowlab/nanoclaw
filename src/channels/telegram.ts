@@ -47,6 +47,9 @@ export class TelegramChannel implements Channel {
   private bot: Bot | null = null;
   private opts: TelegramChannelOpts;
   private botToken: string;
+  private readonly rateLimitWindowMs = 10_000;
+  private readonly rateLimitMax = 20;
+  private messageRates = new Map<string, { count: number; windowStart: number }>();
 
   constructor(botToken: string, opts: TelegramChannelOpts) {
     this.botToken = botToken;
@@ -54,6 +57,12 @@ export class TelegramChannel implements Channel {
   }
 
   async connect(): Promise<void> {
+    // Guard against duplicate connect() calls registering handlers twice
+    if (this.bot) {
+      logger.warn('TelegramChannel.connect() called while already connected — reconnecting');
+      await this.disconnect();
+    }
+
     this.bot = new Bot(this.botToken, {
       client: {
         baseFetchConfig: { agent: https.globalAgent, compress: true },
@@ -88,6 +97,21 @@ export class TelegramChannel implements Channel {
       if (ctx.message.text.startsWith('/')) {
         const cmd = ctx.message.text.slice(1).split(/[\s@]/)[0].toLowerCase();
         if (TELEGRAM_BOT_COMMANDS.has(cmd)) return;
+      }
+
+      // Rate limiting: max 20 messages per 10 s per chat to prevent abuse/flooding
+      const chatKey = `tg:${ctx.chat.id}`;
+      const now = Date.now();
+      const rate = this.messageRates.get(chatKey) ?? { count: 0, windowStart: now };
+      if (now - rate.windowStart > this.rateLimitWindowMs) {
+        rate.count = 0;
+        rate.windowStart = now;
+      }
+      rate.count++;
+      this.messageRates.set(chatKey, rate);
+      if (rate.count > this.rateLimitMax) {
+        logger.warn({ chatJid: chatKey }, 'Rate limit exceeded, dropping message');
+        return;
       }
 
       const chatJid = `tg:${ctx.chat.id}`;
@@ -277,6 +301,7 @@ export class TelegramChannel implements Channel {
     if (this.bot) {
       this.bot.stop();
       this.bot = null;
+      this.messageRates.clear();
       logger.info('Telegram bot stopped');
     }
   }

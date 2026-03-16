@@ -13,6 +13,7 @@ interface QueuedTask {
 
 const MAX_RETRIES = 5;
 const BASE_RETRY_MS = 5000;
+const MAX_PENDING_TASKS_PER_GROUP = 50;
 
 interface GroupState {
   active: boolean;
@@ -99,6 +100,11 @@ export class GroupQueue {
     }
     if (state.pendingTasks.some((t) => t.id === taskId)) {
       logger.debug({ groupJid, taskId }, 'Task already queued, skipping');
+      return;
+    }
+
+    if (state.pendingTasks.length >= MAX_PENDING_TASKS_PER_GROUP) {
+      logger.warn({ groupJid, taskId }, 'Task queue full, dropping task');
       return;
     }
 
@@ -313,6 +319,12 @@ export class GroupQueue {
 
     // Nothing pending for this group; check if other groups are waiting for a slot
     this.drainWaiting();
+
+    // Prune idle group state to prevent unbounded Map growth in long-running services.
+    // Only safe when fully idle: not active, no pending work, no retry scheduled.
+    if (!state.active && state.pendingTasks.length === 0 && !state.pendingMessages && state.retryCount === 0) {
+      this.groups.delete(groupJid);
+    }
   }
 
   private drainWaiting(): void {

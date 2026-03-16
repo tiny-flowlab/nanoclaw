@@ -2,6 +2,24 @@
 
 All notable changes to NanoClaw will be documented in this file.
 
+## [1.2.18] - Reliability & Hardening
+
+### Fixed
+- **Tool call history preservation** (`agent-runner`): Replaced bare `fullText` assistant message push with `result.response.messages` so tool calls and tool results are included in conversation history. Without this, multi-turn follow-up messages lost all tool-call context.
+- **DB graceful shutdown**: Added `closeDatabase()` and call it in the SIGTERM/SIGINT shutdown handler to prevent `SQLITE_BUSY` lock errors on service restart.
+- **Message loop error backoff**: Repeated errors in the message polling loop now use exponential backoff (initial `POLL_INTERVAL`, max 60 s) instead of spinning immediately, preventing CPU exhaustion on persistent failures.
+- **Telegram duplicate handler registration**: `connect()` now disconnects any existing bot instance before reconnecting, preventing duplicate `message:text` handlers from registering on reconnect.
+
+### Added
+- **Session file TTL cleanup** (`agent-runner`): Old `.nanoclaw-sessions/*.json` files are pruned after 7 days to prevent unbounded accumulation on active groups.
+- **IPC error file cleanup**: Files in the `ipc/errors/` directory older than 7 days are deleted automatically on a 24-hour interval.
+- **`pendingTasks` queue cap**: Each group is limited to 50 queued tasks; excess tasks are dropped with a warning to prevent unbounded memory growth.
+- **Idle group state pruning**: Fully-idle group entries are removed from the `GroupQueue` internal Map after draining to prevent memory accumulation over long uptime.
+- **Telegram incoming rate limit**: Messages exceeding 20 per 10 seconds per chat are dropped with a warning log, protecting against flooding/abuse.
+- **`maxSteps` warning** (`agent-runner`): If `streamText` finishes without text output due to step limit or unexpected finish reason, a warning is logged to aid debugging.
+
+---
+
 ## [1.2.17] - Multi-LLM Edition (tiny-flowlab fork)
 
 ### Added

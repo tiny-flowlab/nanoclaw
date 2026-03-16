@@ -46,7 +46,7 @@ describe('escapeXml', () => {
 
   it('handles multiple special characters together', () => {
     expect(escapeXml('a & b < c > d "e" \'f\'')).toBe(
-      "a &amp; b &lt; c &gt; d &quot;e&quot; &apos;f&apos;",
+      'a &amp; b &lt; c &gt; d &quot;e&quot; &apos;f&apos;',
     );
   });
 

@@ -30,6 +30,7 @@ import {
   getAllChats,
   getAllRegisteredGroups,
   getAllSessions,
+  closeDatabase,
   getAllTasks,
   getMessagesSince,
   getNewMessages,
@@ -355,6 +356,7 @@ async function startMessageLoop(): Promise<void> {
 
   logger.info(`NanoClaw running (trigger: @${ASSISTANT_NAME})`);
 
+  let errorDelay = POLL_INTERVAL;
   while (true) {
     try {
       const jids = Object.keys(registeredGroups);
@@ -442,7 +444,12 @@ async function startMessageLoop(): Promise<void> {
       }
     } catch (err) {
       logger.error({ err }, 'Error in message loop');
+      // Exponential backoff on repeated errors (cap at 60 s) to avoid CPU spin
+      await new Promise((resolve) => setTimeout(resolve, errorDelay));
+      errorDelay = Math.min(errorDelay * 2, 60_000);
+      continue;
     }
+    errorDelay = POLL_INTERVAL; // reset on success
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
   }
 }
@@ -489,6 +496,7 @@ async function main(): Promise<void> {
     proxyServer.close();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
+    closeDatabase();
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));

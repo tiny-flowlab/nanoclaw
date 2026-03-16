@@ -149,7 +149,31 @@ export function startIpcWatcher(deps: IpcDeps): void {
     setTimeout(processIpcFiles, IPC_POLL_INTERVAL);
   };
 
+  /** Remove error files older than 7 days to prevent unbounded accumulation. */
+  const cleanupErrorFiles = () => {
+    const errorDir = path.join(ipcBaseDir, 'errors');
+    try {
+      if (!fs.existsSync(errorDir)) return;
+      const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      for (const file of fs.readdirSync(errorDir)) {
+        const filePath = path.join(errorDir, file);
+        try {
+          const stat = fs.statSync(filePath);
+          if (now - stat.mtimeMs > MAX_AGE_MS) {
+            fs.unlinkSync(filePath);
+            logger.debug({ file }, 'Cleaned up old IPC error file');
+          }
+        } catch { /* ignore per-file errors */ }
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Error during IPC error file cleanup');
+    }
+  };
+
   processIpcFiles();
+  // Run error file cleanup once a day
+  setInterval(cleanupErrorFiles, 24 * 60 * 60 * 1000).unref();
   logger.info('IPC watcher started (per-group namespaces)');
 }
 
