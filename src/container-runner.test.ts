@@ -16,6 +16,9 @@ vi.mock('./config.js', () => ({
   GROUPS_DIR: '/tmp/nanoclaw-test-groups',
   IDLE_TIMEOUT: 1800000, // 30min
   TIMEZONE: 'America/Los_Angeles',
+  LLM_PROVIDER: 'claude',
+  LLM_MODEL: '',
+  OLLAMA_BASE_URL: 'http://localhost:11434',
 }));
 
 // Mock logger

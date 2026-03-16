@@ -14,6 +14,9 @@ import {
   DATA_DIR,
   GROUPS_DIR,
   IDLE_TIMEOUT,
+  LLM_PROVIDER,
+  LLM_MODEL,
+  OLLAMA_BASE_URL,
   TIMEZONE,
 } from './config.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
@@ -226,6 +229,24 @@ function buildContainerArgs(
     '-e',
     `ANTHROPIC_BASE_URL=http://${CONTAINER_HOST_GATEWAY}:${CREDENTIAL_PROXY_PORT}`,
   );
+
+  // LLM provider selection — tells the agent-runner which LLM to use
+  args.push('-e', `LLM_PROVIDER=${LLM_PROVIDER}`);
+  if (LLM_MODEL) args.push('-e', `LLM_MODEL=${LLM_MODEL}`);
+
+  // For Ollama: forward the base URL so the container can reach the local Ollama server
+  if (LLM_PROVIDER === 'ollama') {
+    args.push('-e', `OLLAMA_BASE_URL=${OLLAMA_BASE_URL}`);
+  }
+
+  // For OpenAI / Gemini: inject API keys as placeholders — real keys are injected
+  // by the credential proxy for Claude; for other providers pass through directly.
+  if (LLM_PROVIDER === 'openai') {
+    args.push('-e', `OPENAI_API_KEY=${process.env.OPENAI_API_KEY || 'placeholder'}`);
+  }
+  if (LLM_PROVIDER === 'gemini') {
+    args.push('-e', `GEMINI_API_KEY=${process.env.GEMINI_API_KEY || 'placeholder'}`);
+  }
 
   // Mirror the host's auth method with a placeholder value.
   // API key mode: SDK sends x-api-key, proxy replaces with real key.

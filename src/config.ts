@@ -58,6 +58,12 @@ export const MAX_CONCURRENT_CONTAINERS = Math.max(
   parseInt(process.env.MAX_CONCURRENT_CONTAINERS || '5', 10) || 5,
 );
 
+// LLM provider configuration — passed as env vars into agent containers
+// so the agent-runner can pick the correct LLM backend.
+export const LLM_PROVIDER = process.env.LLM_PROVIDER || 'claude';
+export const LLM_MODEL = process.env.LLM_MODEL || '';
+export const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
