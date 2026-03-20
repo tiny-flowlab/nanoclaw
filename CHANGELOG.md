@@ -2,6 +2,16 @@
 
 All notable changes to NanoClaw will be documented in this file.
 
+## [1.2.19] - Fork CI Fix
+
+### Fixed
+- **GitHub Actions failure on fork**: All workflows (25 consecutive runs since Mar 16) were failing because upstream workflows require GitHub App secrets (`APP_ID`, `APP_PRIVATE_KEY`) that don't exist in the fork.
+  - `fork-sync-skills.yml`: Replaced `actions/create-github-app-token` with `GITHUB_TOKEN`. This was the main offender — scheduled every 6 hours, generating ~4 failure notification emails per day.
+  - `bump-version.yml`: Added `if: github.repository == 'qwibitai/nanoclaw'` guard to skip on forks (auto version bumping is upstream-only).
+  - `update-tokens.yml`: Same upstream-only guard added (token count badge is upstream-only).
+
+---
+
 ## [1.2.18] - Reliability & Hardening
 
 ### Fixed
