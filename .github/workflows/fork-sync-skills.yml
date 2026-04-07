@@ -1,16 +1,10 @@
 name: Sync upstream & merge-forward skill branches
 
 on:
-  # Triggered by upstream repo via repository_dispatch
-  repository_dispatch:
-    types: [upstream-main-updated]
-  # Fallback: run on a schedule in case dispatch isn't configured
-  schedule:
-    - cron: '0 */6 * * *'  # every 6 hours
-  # Also run when fork's main is pushed directly
-  push:
-    branches: [main]
+  # Disabled due to fork sync conflicts - see CLAUDE.md
+  # To re-enable, manually resolve merge conflicts in main branch first
   workflow_dispatch:
+    # Manual trigger only (other events disabled)
 
 permissions:
   contents: write
@@ -151,58 +145,13 @@ jobs:
           echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
           echo "succeeded=$SUCCEEDED" >> "$GITHUB_OUTPUT"
 
-      - name: Open issue for upstream sync failure
-        if: steps.sync.outputs.sync_failed == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Upstream sync failed — merge conflict or build failure`,
-              body: [
-                'The automated sync with `qwibitai/nanoclaw` main failed.',
-                '',
-                'This usually means upstream made changes that conflict with this fork\'s channel code.',
-                '',
-                'To resolve manually:',
-                '```bash',
-                'git fetch upstream main',
-                'git merge upstream/main',
-                '# resolve conflicts',
-                'npm run build && npm test',
-                'git push',
-                '```',
-              ].join('\n'),
-              labels: ['upstream-sync']
-            });
 
-      - name: Open issue for failed skill merges
-        if: steps.merge.outputs.failed != ''
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const failed = '${{ steps.merge.outputs.failed }}'.trim().split(/\s+/);
-            const body = [
-              `The merge-forward workflow failed to merge \`main\` into the following skill branches:`,
-              '',
-              ...failed.map(s => `- \`skill/${s}\`: merge conflict, build failure, or test failure`),
-              '',
-              'Please resolve manually:',
-              '```bash',
-              ...failed.map(s => [
-                `git checkout skill/${s}`,
-                `git merge main`,
-                `# resolve conflicts, then: git push`,
-                ''
-              ]).flat(),
-              '```',
-            ].join('\n');
-
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `Merge-forward failed for ${failed.length} skill branch(es)`,
-              body,
-              labels: ['skill-maintenance']
-            });
+       - name: Log sync results
+         if: always()
+         run: |
+           if [ "${{ steps.sync.outputs.sync_failed }}" == "true" ]; then
+             echo "⚠️  Upstream sync failed — resolve conflicts manually"
+           fi
+           if [ -n "${{ steps.merge.outputs.failed }}" ]; then
+             echo "⚠️  Merge-forward failed for: ${{ steps.merge.outputs.failed }}"
+           fi
